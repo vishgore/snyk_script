@@ -90,11 +90,17 @@ TLS_HINT = (
 )
 
 
+GROUP_ID_RE = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+
+
 def fetch_orgs(group_id, out_path="orgs.txt"):
     """Org slugs for the group, via the public REST API."""
     token = os.environ.get("SNYK_TOKEN")
     if not token:
         sys.exit("Set SNYK_TOKEN to fetch org slugs.")
+    if not GROUP_ID_RE.match(group_id):
+        sys.exit(f"--group must be a UUID, got: {group_id!r}")
 
     slugs, path, params = [], f"/rest/groups/{group_id}/orgs", {"limit": 100}
     while path:
