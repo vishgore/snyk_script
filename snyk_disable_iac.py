@@ -167,8 +167,9 @@ def run(orgs_path, apply_changes, enable, delay, insecure):
         sys.exit(f"{orgs_path} is empty.")
 
     target = bool(enable)
+    status_label = "enabled" if target else "disabled"
     prog = load_progress()
-    todo = [s for s in slugs if prog.get(s) != "ok"]
+    todo = [s for s in slugs if prog.get(s) != status_label]
 
     print(f"{len(slugs)} orgs, {len(todo)} to do | "
           f"detectCloudConfigFilesEnabled -> {target} | "
@@ -210,7 +211,7 @@ def run(orgs_path, apply_changes, enable, delay, insecure):
                     data=json.dumps({"detectCloudConfigFilesEnabled": target}),
                     timeout=30000,
                 )
-                prog[slug] = "ok" if resp.status == 200 else f"http-{resp.status}"
+                prog[slug] = status_label if resp.status == 200 else f"http-{resp.status}"
             except Exception as e:
                 prog[slug] = f"error:{type(e).__name__}"
 
