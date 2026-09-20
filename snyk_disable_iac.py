@@ -131,6 +131,7 @@ def login(insecure):
         input("Log in (SSO/MFA included), land on the dashboard, then press Enter... ")
         ctx.storage_state(path=SESSION_FILE)
         browser.close()
+    os.chmod(SESSION_FILE, 0o600)
     print(f"session saved -> {SESSION_FILE}")
 
 
@@ -197,7 +198,6 @@ def run(orgs_path, apply_changes, enable, delay, insecure):
         api = ctx.request                      # shares the session cookie jar
 
         csrf = get_csrf(api, slugs[0])
-        print(f"csrf token acquired ({len(csrf)} chars)\n")
 
         headers = {
             "Accept": "application/json",
