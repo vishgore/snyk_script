@@ -36,6 +36,11 @@ USAGE
     python disable_iac_ui.py --orgs orgs.txt --apply
     python disable_iac_ui.py --orgs orgs.txt --apply --enable    # reverse it
 
+    If Chromium can't be installed/run (e.g. a locked-down corporate device
+    that only allows Microsoft Edge), add --browser msedge to --login and
+    --apply -- Playwright will drive your existing Edge install instead of
+    downloading its own Chromium.
+
 CORPORATE TLS PROXY (Zscaler / Netskope / Bluecoat etc.)
     Symptom: "unable to get local issuer certificate"
 
@@ -122,10 +127,13 @@ def fetch_orgs(group_id, out_path="orgs.txt"):
     print(f"{len(slugs)} org slugs -> {out_path}")
 
 
-def login(insecure):
+def login(insecure, channel=None):
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False)
+        launch_kwargs = {"headless": False}
+        if channel:
+            launch_kwargs["channel"] = channel
+        browser = p.chromium.launch(**launch_kwargs)
         ctx = browser.new_context(ignore_https_errors=insecure)
         ctx.new_page().goto(f"{APP_BASE}/login")
         input("Log in (SSO/MFA included), land on the dashboard, then press Enter... ")
@@ -163,7 +171,7 @@ def load_progress():
     return {}
 
 
-def run(orgs_path, apply_changes, enable, delay, insecure):
+def run(orgs_path, apply_changes, enable, delay, insecure, channel=None):
     from playwright.sync_api import sync_playwright
 
     if not os.path.exists(SESSION_FILE):
@@ -192,7 +200,10 @@ def run(orgs_path, apply_changes, enable, delay, insecure):
         return
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        launch_kwargs = {"headless": True}
+        if channel:
+            launch_kwargs["channel"] = channel
+        browser = p.chromium.launch(**launch_kwargs)
         ctx = browser.new_context(storage_state=SESSION_FILE,
                                   ignore_https_errors=insecure)
         api = ctx.request                      # shares the session cookie jar
@@ -250,17 +261,23 @@ def main():
                     help="turn detection back ON instead of off")
     ap.add_argument("--insecure", action="store_true",
                     help="skip TLS cert validation (corporate proxy workaround)")
+    ap.add_argument("--browser", choices=["chromium", "msedge"], default="chromium",
+                    help="browser Playwright drives -- use msedge if Chromium "
+                         "can't be installed/run (e.g. locked-down corporate "
+                         "device); requires Microsoft Edge to already be "
+                         "installed")
     ap.add_argument("--delay", type=float, default=0.2)
     args = ap.parse_args()
+    channel = None if args.browser == "chromium" else args.browser
 
     if args.fetch_orgs:
         if not args.group:
             sys.exit("--fetch-orgs needs --group")
         fetch_orgs(args.group)
     elif args.login:
-        login(args.insecure)
+        login(args.insecure, channel)
     elif args.dry_run or args.apply:
-        run(args.orgs, args.apply, args.enable, args.delay, args.insecure)
+        run(args.orgs, args.apply, args.enable, args.delay, args.insecure, channel)
     else:
         ap.print_help()
 
